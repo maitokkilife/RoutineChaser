@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Activity } from 'lucide-react'
 import Home from './components/Home'
 import MealCapture from './components/MealCapture'
@@ -7,18 +7,22 @@ import MonthlyRetro from './components/MonthlyRetro'
 import Settings from './components/Settings'
 import { NAV_ITEMS } from './components/NavItems'
 import { mealSlotLabel } from './mealConfig'
-import { initialMedications, initialMealSlots, initialTimeline, initialRetros } from './mockData'
+import * as storage from './storage'
 
 const TODAY_LABEL = '2026년 7월 12일 (일요일)'
 
 export default function App() {
   const [tab, setTab] = useState('home')
-  const [medications, setMedications] = useState(initialMedications)
-  const [mealSlots, setMealSlots] = useState(initialMealSlots)
-  const [timeline, setTimeline] = useState(initialTimeline)
-  const [retros, setRetros] = useState(initialRetros)
+  const [medications, setMedications] = useState(() => storage.loadAll().medications)
+  const [mealSlots, setMealSlots] = useState(() => storage.loadAll().mealSlots)
+  const [timeline, setTimeline] = useState(() => storage.loadAll().timeline)
+  const [retros, setRetros] = useState(() => storage.loadAll().retros)
   const [mealPrefillSlot, setMealPrefillSlot] = useState(null)
   const [mealCaptureKey, setMealCaptureKey] = useState(0)
+
+  useEffect(() => {
+    storage.saveAll({ medications, mealSlots, timeline, retros })
+  }, [medications, mealSlots, timeline, retros])
 
   function switchTab(id) {
     setTab(id)
@@ -32,6 +36,7 @@ export default function App() {
   }
 
   function toggleMedication(medId, timeId) {
+    let newTimelineEntry = null
     setMedications((prev) =>
       prev.map((med) => {
         if (med.id !== medId) return med
@@ -43,16 +48,13 @@ export default function App() {
             if (nextDone) {
               const now = new Date()
               const doneAt = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-              setTimeline((prevTl) => [
-                {
-                  id: `tl-${Date.now()}-med-${timeId}`,
-                  type: 'medication',
-                  time: doneAt,
-                  title: `${med.name} 복용 완료`,
-                  subtitle: t.label,
-                },
-                ...prevTl,
-              ])
+              newTimelineEntry = {
+                id: `tl-${Date.now()}-med-${timeId}`,
+                type: 'medication',
+                time: doneAt,
+                title: `${med.name} 복용 완료`,
+                subtitle: t.label,
+              }
               return { ...t, done: true, doneAt }
             }
             return { ...t, done: false, doneAt: null }
@@ -60,6 +62,7 @@ export default function App() {
         }
       }),
     )
+    if (newTimelineEntry) setTimeline((prevTl) => [newTimelineEntry, ...prevTl])
   }
 
   function addTimelineEntry(entry) {
