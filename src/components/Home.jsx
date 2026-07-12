@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Check, Scale, Plus, Cookie, AlertTriangle } from 'lucide-react'
+import { Check, Scale, Plus, Cookie, AlertTriangle, Moon, Sun } from 'lucide-react'
 import Timeline from './Timeline'
 import Modal from './Modal'
+import { formatDateShort } from '../dateUtils'
+import { getTodayDayKr } from '../weekConfig'
 
 const VITAL_UNITS = ['mg/dL', 'mL', 'kg']
 
@@ -18,9 +20,15 @@ export default function Home({
   timeline,
   onAddTimelineEntry,
   todayLabel,
+  sleepLog,
+  pendingSleepStart,
+  onCheckInSleep,
+  onCheckOutSleep,
 }) {
   const [weightValue, setWeightValue] = useState('')
   const [activeModal, setActiveModal] = useState(null) // 'hunger' | 'symptom' | 'vital' | null
+  const isSleeping = !!pendingSleepStart
+  const todaySleepRecord = sleepLog[getTodayDayKr()]
 
   const [symptomText, setSymptomText] = useState('')
   const [vitalName, setVitalName] = useState('')
@@ -89,6 +97,12 @@ export default function Home({
 
   return (
     <div className="space-y-5">
+      {/* 제목 */}
+      <div className="pt-1">
+        <h1 className="text-2xl font-extrabold text-slate-800">오늘의 루틴</h1>
+        <p className="mt-0.5 text-sm text-slate-400">{formatDateShort()}</p>
+      </div>
+
       {/* 상단 요약 */}
       <div className="rounded-2xl bg-forest-700 p-5 text-white shadow-sm">
         <p className="text-xs font-medium text-forest-100">{todayLabel}</p>
@@ -104,6 +118,44 @@ export default function Home({
           </div>
         </div>
       </div>
+
+      {/* 오늘 수면 기록 */}
+      <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-700">오늘 수면 기록</h2>
+          {isSleeping && <span className="text-xs font-semibold text-indigo-600">취침 중</span>}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={onCheckInSleep}
+            disabled={isSleeping}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition ${
+              isSleeping
+                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            }`}
+          >
+            <Moon className="h-3.5 w-3.5" /> 체크인 (취침)
+          </button>
+          <button
+            onClick={onCheckOutSleep}
+            disabled={!isSleeping}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition ${
+              !isSleeping
+                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
+          >
+            <Sun className="h-3.5 w-3.5" /> 체크아웃 (기상)
+          </button>
+        </div>
+        {!isSleeping && todaySleepRecord && (
+          <p className="mt-2 text-xs text-slate-400">
+            {todaySleepRecord.bedTime} 취침 · {todaySleepRecord.wakeTime} 기상 · 총{' '}
+            {(todaySleepRecord.durationMin / 60).toFixed(1)}시간
+          </p>
+        )}
+      </section>
 
       {/* 오늘 식사 기록 */}
       <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">

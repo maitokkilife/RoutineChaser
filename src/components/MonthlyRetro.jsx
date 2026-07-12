@@ -1,11 +1,36 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { TrendingUp, Pill, UtensilsCrossed, Droplet, ThumbsUp, AlertOctagon, Rocket } from 'lucide-react'
-import { monthlySummary } from '../mockData'
 
-export default function MonthlyRetro({ retros, onAddRetro }) {
+function computeMonthlySummary(medications, timeline) {
+  const now = new Date()
+  const monthLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`
+
+  const weightEntries = timeline.filter((e) => e.type === 'vital' && e.meta?.kind === 'weight')
+  const avgWeight = weightEntries.length
+    ? Math.round((weightEntries.reduce((s, e) => s + Number(e.meta.value), 0) / weightEntries.length) * 10) / 10
+    : null
+
+  const glucoseEntries = timeline.filter(
+    (e) => e.type === 'vital' && e.meta?.kind === 'custom' && e.meta?.label?.includes('혈당'),
+  )
+  const avgGlucose = glucoseEntries.length
+    ? Math.round(glucoseEntries.reduce((s, e) => s + Number(e.meta.value), 0) / glucoseEntries.length)
+    : null
+
+  const totalSlots = medications.reduce((sum, m) => sum + m.times.length, 0)
+  const doneSlots = medications.reduce((sum, m) => sum + m.times.filter((t) => t.done).length, 0)
+  const medicationRate = totalSlots > 0 ? Math.round((doneSlots / totalSlots) * 100) : 0
+
+  const mealLogCount = timeline.filter((e) => e.type === 'meal').length
+
+  return { monthLabel, avgWeight, avgGlucose, medicationRate, mealLogCount }
+}
+
+export default function MonthlyRetro({ retros, onAddRetro, medications, timeline }) {
   const [keep, setKeep] = useState('')
   const [problem, setProblem] = useState('')
   const [action, setAction] = useState('')
+  const monthlySummary = useMemo(() => computeMonthlySummary(medications, timeline), [medications, timeline])
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -24,6 +49,11 @@ export default function MonthlyRetro({ retros, onAddRetro }) {
 
   return (
     <div className="space-y-5">
+      <div className="pt-1">
+        <h1 className="text-2xl font-extrabold text-slate-800">월간 피드백</h1>
+        <p className="mt-0.5 text-sm text-slate-400">이번 달 건강 관리 현황</p>
+      </div>
+
       <div className="rounded-2xl bg-forest-700 p-4 text-white shadow-sm">
         <div className="flex items-center gap-1.5 text-sm font-bold text-forest-100">
           <TrendingUp className="h-4 w-4" /> {monthlySummary.monthLabel} 요약
@@ -31,12 +61,12 @@ export default function MonthlyRetro({ retros, onAddRetro }) {
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl bg-white/10 p-3">
             <Droplet className="h-4 w-4 text-sky-200" />
-            <p className="mt-1 text-lg font-bold">{monthlySummary.avgGlucose}</p>
+            <p className="mt-1 text-lg font-bold">{monthlySummary.avgGlucose != null ? monthlySummary.avgGlucose : '-'}</p>
             <p className="text-[11px] text-forest-100">평균 혈당 mg/dL</p>
           </div>
           <div className="rounded-xl bg-white/10 p-3">
             <TrendingUp className="h-4 w-4 text-forest-100" />
-            <p className="mt-1 text-lg font-bold">{monthlySummary.avgWeight}kg</p>
+            <p className="mt-1 text-lg font-bold">{monthlySummary.avgWeight != null ? `${monthlySummary.avgWeight}kg` : '-'}</p>
             <p className="text-[11px] text-forest-100">평균 체중</p>
           </div>
           <div className="rounded-xl bg-white/10 p-3">

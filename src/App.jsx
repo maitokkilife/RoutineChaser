@@ -2,14 +2,18 @@ import { useState, useEffect } from 'react'
 import { Activity } from 'lucide-react'
 import Home from './components/Home'
 import MealCapture from './components/MealCapture'
+import SleepLog from './components/SleepLog'
 import WeeklyReport from './components/WeeklyReport'
 import MonthlyRetro from './components/MonthlyRetro'
 import Settings from './components/Settings'
 import { NAV_ITEMS } from './components/NavItems'
 import { mealSlotLabel } from './mealConfig'
+import { formatDateFull } from './dateUtils'
+import { getTodayDayKr } from './weekConfig'
 import * as storage from './storage'
 
-const TODAY_LABEL = '2026년 7월 12일 (일요일)'
+const TODAY_LABEL = formatDateFull()
+const HEADER_TABS = ['home', 'weekly', 'monthly', 'sleep']
 
 export default function App() {
   const [tab, setTab] = useState('home')
@@ -17,12 +21,25 @@ export default function App() {
   const [mealSlots, setMealSlots] = useState(() => storage.loadAll().mealSlots)
   const [timeline, setTimeline] = useState(() => storage.loadAll().timeline)
   const [retros, setRetros] = useState(() => storage.loadAll().retros)
+  const [weeklyPatternLog, setWeeklyPatternLog] = useState(() => storage.loadAll().weeklyPatternLog)
+  const [weeklyMealTimeLog, setWeeklyMealTimeLog] = useState(() => storage.loadAll().weeklyMealTimeLog)
+  const [sleepLog, setSleepLog] = useState(() => storage.loadAll().sleepLog)
+  const [pendingSleepStart, setPendingSleepStart] = useState(() => storage.loadAll().pendingSleepStart)
   const [mealPrefillSlot, setMealPrefillSlot] = useState(null)
   const [mealCaptureKey, setMealCaptureKey] = useState(0)
 
   useEffect(() => {
-    storage.saveAll({ medications, mealSlots, timeline, retros })
-  }, [medications, mealSlots, timeline, retros])
+    storage.saveAll({
+      medications,
+      mealSlots,
+      timeline,
+      retros,
+      weeklyPatternLog,
+      weeklyMealTimeLog,
+      sleepLog,
+      pendingSleepStart,
+    })
+  }, [medications, mealSlots, timeline, retros, weeklyPatternLog, weeklyMealTimeLog, sleepLog, pendingSleepStart])
 
   function switchTab(id) {
     setTab(id)
@@ -82,7 +99,36 @@ export default function App() {
       setMealSlots((prev) =>
         prev.map((s) => (s.id === slotId ? { ...s, done: true, doneAt: time, menu: menuName } : s)),
       )
+      const day = getTodayDayKr()
+      setWeeklyMealTimeLog((prev) => ({ ...prev, [day]: { ...(prev[day] || {}), [slotId]: time } }))
     }
+  }
+
+  function toggleWeeklyPatternCell(day, hour, mode) {
+    setWeeklyPatternLog((prev) => {
+      const dayLog = { ...(prev[day] || {}) }
+      if (dayLog[hour] === mode) {
+        delete dayLog[hour]
+      } else {
+        dayLog[hour] = mode
+      }
+      return { ...prev, [day]: dayLog }
+    })
+  }
+
+  function checkInSleep() {
+    setPendingSleepStart(new Date().toISOString())
+  }
+
+  function checkOutSleep() {
+    if (!pendingSleepStart) return
+    const start = new Date(pendingSleepStart)
+    const end = new Date()
+    const durationMin = Math.max(0, Math.round((end - start) / 60000))
+    const bedTime = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+    const wakeTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+    setSleepLog((prev) => ({ ...prev, [getTodayDayKr(end)]: { bedTime, wakeTime, durationMin } }))
+    setPendingSleepStart(null)
   }
 
   function addMedication(med) {
@@ -139,11 +185,13 @@ export default function App() {
             </div>
           </header>
 
-          <header className="mb-5 hidden md:block">
-            <h1 className="text-xl font-extrabold tracking-tight text-slate-800">
-              {NAV_ITEMS.find((n) => n.id === tab)?.label}
-            </h1>
-          </header>
+          {!HEADER_TABS.includes(tab) && (
+            <header className="mb-5 hidden md:block">
+              <h1 className="text-xl font-extrabold tracking-tight text-slate-800">
+                {NAV_ITEMS.find((n) => n.id === tab)?.label}
+              </h1>
+            </header>
+          )}
 
           {tab === 'home' && (
             <Home
@@ -154,11 +202,28 @@ export default function App() {
               timeline={timeline}
               onAddTimelineEntry={addTimelineEntry}
               todayLabel={TODAY_LABEL}
+              sleepLog={sleepLog}
+              pendingSleepStart={pendingSleepStart}
+              onCheckInSleep={checkInSleep}
+              onCheckOutSleep={checkOutSleep}
             />
           )}
           {tab === 'meal' && <MealCapture key={mealCaptureKey} prefillSlot={mealPrefillSlot} onSave={logMeal} />}
-          {tab === 'weekly' && <WeeklyReport medications={medications} />}
-          {tab === 'monthly' && <MonthlyRetro retros={retros} onAddRetro={addRetro} />}
+          {tab === 'sleep' && (
+            <SleepLog sleepLog={sleepLog} pendingSleepStart={pendingSleepStart} onCheckIn={checkInSleep} onCheckOut={checkOutSleep} />
+          )}
+          {tab === 'weekly' && (
+            <WeeklyReport
+              medications={medications}
+              weeklyPatternLog={weeklyPatternLog}
+              onTogglePatternCell={toggleWeeklyPatternCell}
+              sleepLog={sleepLog}
+              weeklyMealTimeLog={weeklyMealTimeLog}
+            />
+          )}
+          {tab === 'monthly' && (
+            <MonthlyRetro retros={retros} onAddRetro={addRetro} medications={medications} timeline={timeline} />
+          )}
           {tab === 'settings' && (
             <Settings medications={medications} onAddMedication={addMedication} onRemoveMedication={removeMedication} />
           )}
