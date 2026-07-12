@@ -10,6 +10,7 @@ const KEYS = {
   weeklyMealTimeLog: 'routine-chaser:weeklyMealTimeLog',
   sleepLog: 'routine-chaser:sleepLog',
   pendingSleepStart: 'routine-chaser:pendingSleepStart',
+  goal: 'routine-chaser:goal',
 }
 
 const DEFAULT_MEAL_SLOTS = MEAL_SLOT_OPTIONS.filter((opt) => opt.id !== 'other').map((opt) => ({
@@ -30,6 +31,7 @@ export function loadAll() {
     weeklyMealTimeLog: load(KEYS.weeklyMealTimeLog) ?? {},
     sleepLog: load(KEYS.sleepLog) ?? {},
     pendingSleepStart: load(KEYS.pendingSleepStart) ?? null,
+    goal: load(KEYS.goal) ?? '',
   }
 }
 
@@ -42,6 +44,7 @@ export function saveAll({
   weeklyMealTimeLog,
   sleepLog,
   pendingSleepStart,
+  goal,
 }) {
   save(KEYS.medications, medications)
   save(KEYS.mealSlots, mealSlots)
@@ -51,4 +54,5 @@ export function saveAll({
   save(KEYS.weeklyMealTimeLog, weeklyMealTimeLog)
   save(KEYS.sleepLog, sleepLog)
   save(KEYS.pendingSleepStart, pendingSleepStart)
+  save(KEYS.goal, goal)
 }

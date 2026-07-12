@@ -25,6 +25,7 @@ export default function App() {
   const [weeklyMealTimeLog, setWeeklyMealTimeLog] = useState(() => storage.loadAll().weeklyMealTimeLog)
   const [sleepLog, setSleepLog] = useState(() => storage.loadAll().sleepLog)
   const [pendingSleepStart, setPendingSleepStart] = useState(() => storage.loadAll().pendingSleepStart)
+  const [goal, setGoal] = useState(() => storage.loadAll().goal)
   const [mealPrefillSlot, setMealPrefillSlot] = useState(null)
   const [mealCaptureKey, setMealCaptureKey] = useState(0)
 
@@ -38,8 +39,9 @@ export default function App() {
       weeklyMealTimeLog,
       sleepLog,
       pendingSleepStart,
+      goal,
     })
-  }, [medications, mealSlots, timeline, retros, weeklyPatternLog, weeklyMealTimeLog, sleepLog, pendingSleepStart])
+  }, [medications, mealSlots, timeline, retros, weeklyPatternLog, weeklyMealTimeLog, sleepLog, pendingSleepStart, goal])
 
   function switchTab(id) {
     setTab(id)
@@ -206,6 +208,8 @@ export default function App() {
               pendingSleepStart={pendingSleepStart}
               onCheckInSleep={checkInSleep}
               onCheckOutSleep={checkOutSleep}
+              goal={goal}
+              onSetGoal={setGoal}
             />
           )}
           {tab === 'meal' && <MealCapture key={mealCaptureKey} prefillSlot={mealPrefillSlot} onSave={logMeal} />}
