@@ -134,9 +134,27 @@ export default function WeeklyReport({ medications, weeklyPatternLog, onTogglePa
           <UtensilsCrossed className="h-4 w-4 text-amber-600" /> 이번 주 식사 시각 그래프
         </div>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <TimeOfDayChart title="아침" color="#b45309" valuesByDay={breakfastByDay} formatValue={hourDecimalToTimeLabel} />
-          <TimeOfDayChart title="점심" color="#0d4d25" valuesByDay={lunchByDay} formatValue={hourDecimalToTimeLabel} />
-          <TimeOfDayChart title="저녁" color="#7c2d12" valuesByDay={dinnerByDay} formatValue={hourDecimalToTimeLabel} />
+          <TimeOfDayChart
+            title="아침"
+            color="#b45309"
+            valuesByDay={breakfastByDay}
+            formatValue={hourDecimalToTimeLabel}
+            showCarryForward
+          />
+          <TimeOfDayChart
+            title="점심"
+            color="#0d4d25"
+            valuesByDay={lunchByDay}
+            formatValue={hourDecimalToTimeLabel}
+            showCarryForward
+          />
+          <TimeOfDayChart
+            title="저녁"
+            color="#7c2d12"
+            valuesByDay={dinnerByDay}
+            formatValue={hourDecimalToTimeLabel}
+            showCarryForward
+          />
         </div>
       </div>
 

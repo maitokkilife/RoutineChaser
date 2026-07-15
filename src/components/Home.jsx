@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { Check, Scale, Plus, Cookie, AlertTriangle, Moon, Sun, Target } from 'lucide-react'
+import { Check, Plus, Cookie, AlertTriangle, Moon, Sun, Target } from 'lucide-react'
 import Timeline from './Timeline'
 import Modal from './Modal'
 import { formatDateShort } from '../dateUtils'
 import { getTodayDayKr } from '../weekConfig'
-
-const VITAL_UNITS = ['mg/dL', 'mL', 'kg']
 
 function nowTime() {
   const d = new Date()
@@ -32,15 +30,11 @@ export default function Home({
   goal,
   onSetGoal,
 }) {
-  const [weightValue, setWeightValue] = useState('')
-  const [activeModal, setActiveModal] = useState(null) // 'hunger' | 'symptom' | 'vital' | 'goal' | null
+  const [activeModal, setActiveModal] = useState(null) // 'hunger' | 'symptom' | 'goal' | null
   const isSleeping = !!pendingSleepStart
   const todaySleepRecord = sleepLog[getTodayDayKr()]
 
   const [symptomText, setSymptomText] = useState('')
-  const [vitalName, setVitalName] = useState('')
-  const [vitalValue, setVitalValue] = useState('')
-  const [vitalUnit, setVitalUnit] = useState(VITAL_UNITS[0])
   const [goalDraft, setGoalDraft] = useState(goal)
 
   const mealDoneCount = mealSlots.filter((s) => s.done).length
@@ -59,37 +53,6 @@ export default function Home({
   function clearGoal() {
     onSetGoal('')
     setGoalDraft('')
-    setActiveModal(null)
-  }
-
-  function submitWeight(e) {
-    e.preventDefault()
-    if (!weightValue) return
-    onAddTimelineEntry({
-      id: `tl-${Date.now()}-weight`,
-      type: 'vital',
-      time: nowTime(),
-      title: '몸무게 측정',
-      subtitle: `${weightValue} kg`,
-      meta: { kind: 'weight', value: Number(weightValue) },
-    })
-    setWeightValue('')
-  }
-
-  function submitCustomVital(e) {
-    e.preventDefault()
-    if (!vitalName || !vitalValue) return
-    onAddTimelineEntry({
-      id: `tl-${Date.now()}-custom-vital`,
-      type: 'vital',
-      time: nowTime(),
-      title: `${vitalName} 측정`,
-      subtitle: `${vitalValue} ${vitalUnit}`,
-      meta: { kind: 'custom', label: vitalName, value: vitalValue, unit: vitalUnit },
-    })
-    setVitalName('')
-    setVitalValue('')
-    setVitalUnit(VITAL_UNITS[0])
     setActiveModal(null)
   }
 
@@ -147,44 +110,6 @@ export default function Home({
           )}
         </div>
       </div>
-
-      {/* 오늘 수면 기록 */}
-      <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-700">오늘 수면 기록</h2>
-          {isSleeping && <span className="text-xs font-semibold text-indigo-600">취침 중</span>}
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            onClick={onCheckInSleep}
-            disabled={isSleeping}
-            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition ${
-              isSleeping
-                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
-                : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-            }`}
-          >
-            <Moon className="h-3.5 w-3.5" /> 체크인 (취침)
-          </button>
-          <button
-            onClick={onCheckOutSleep}
-            disabled={!isSleeping}
-            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition ${
-              !isSleeping
-                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
-                : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-            }`}
-          >
-            <Sun className="h-3.5 w-3.5" /> 체크아웃 (기상)
-          </button>
-        </div>
-        {!isSleeping && todaySleepRecord && (
-          <p className="mt-2 text-xs text-slate-400">
-            {todaySleepRecord.bedTime} 취침 · {todaySleepRecord.wakeTime} 기상 · 총{' '}
-            {(todaySleepRecord.durationMin / 60).toFixed(1)}시간
-          </p>
-        )}
-      </section>
 
       {/* 오늘 식사 기록 */}
       <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -267,37 +192,6 @@ export default function Home({
         </div>
       </section>
 
-      {/* 생체 수치 입력 */}
-      <section className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-            <Scale className="h-3.5 w-3.5 text-forest-600" /> 몸무게 (kg)
-          </label>
-          <button
-            onClick={() => setActiveModal('vital')}
-            className="flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:border-forest-300 hover:text-forest-700"
-          >
-            <Plus className="h-3 w-3" /> 수치 추가
-          </button>
-        </div>
-        <form onSubmit={submitWeight} className="mt-2 flex gap-2">
-          <input
-            type="number"
-            step="0.1"
-            value={weightValue}
-            onChange={(e) => setWeightValue(e.target.value)}
-            placeholder="예: 71.2"
-            className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-forest-500 focus:outline-none focus:ring-1 focus:ring-forest-500"
-          />
-          <button
-            type="submit"
-            className="flex-shrink-0 rounded-lg bg-forest-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-forest-800"
-          >
-            기록
-          </button>
-        </form>
-      </section>
-
       {/* 퀵 버튼 */}
       <section className="grid grid-cols-2 gap-2">
         <button
@@ -314,6 +208,44 @@ export default function Home({
           <AlertTriangle className="h-5 w-5 text-rose-600" />
           특이 증상 기록
         </button>
+      </section>
+
+      {/* 오늘 수면 기록 */}
+      <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-700">오늘 수면 기록</h2>
+          {isSleeping && <span className="text-xs font-semibold text-indigo-600">취침 중</span>}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={onCheckInSleep}
+            disabled={isSleeping}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition ${
+              isSleeping
+                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            }`}
+          >
+            <Moon className="h-3.5 w-3.5" /> 체크인 (취침)
+          </button>
+          <button
+            onClick={onCheckOutSleep}
+            disabled={!isSleeping}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition ${
+              !isSleeping
+                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
+          >
+            <Sun className="h-3.5 w-3.5" /> 체크아웃 (기상)
+          </button>
+        </div>
+        {!isSleeping && todaySleepRecord && (
+          <p className="mt-2 text-xs text-slate-400">
+            {todaySleepRecord.bedTime} 취침 · {todaySleepRecord.wakeTime} 기상 · 총{' '}
+            {(todaySleepRecord.durationMin / 60).toFixed(1)}시간
+          </p>
+        )}
       </section>
 
       {/* 타임라인 */}
@@ -414,60 +346,6 @@ export default function Home({
               rows={3}
               className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm focus:border-forest-500 focus:outline-none focus:ring-1 focus:ring-forest-500"
             />
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-forest-700 py-2.5 text-sm font-semibold text-white hover:bg-forest-800"
-            >
-              타임라인에 추가
-            </button>
-          </form>
-        </Modal>
-      )}
-
-      {/* 커스텀 수치 추가 모달 */}
-      {activeModal === 'vital' && (
-        <Modal title="수치 추가" onClose={() => setActiveModal(null)}>
-          <form onSubmit={submitCustomVital} className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-slate-600">수치 이름</label>
-              <input
-                value={vitalName}
-                onChange={(e) => setVitalName(e.target.value)}
-                placeholder="예: 혈당"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm focus:border-forest-500 focus:outline-none focus:ring-1 focus:ring-forest-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600">값</label>
-              <input
-                type="number"
-                step="0.1"
-                value={vitalValue}
-                onChange={(e) => setVitalValue(e.target.value)}
-                placeholder="예: 98"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm focus:border-forest-500 focus:outline-none focus:ring-1 focus:ring-forest-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600">단위</label>
-              <div className="mt-1 grid grid-cols-3 gap-2">
-                {VITAL_UNITS.map((unit) => (
-                  <button
-                    type="button"
-                    key={unit}
-                    onClick={() => setVitalUnit(unit)}
-                    className={`rounded-lg border px-2 py-2 text-sm font-semibold transition ${
-                      vitalUnit === unit
-                        ? 'border-forest-300 bg-forest-50 text-forest-700'
-                        : 'border-slate-200 text-slate-500 hover:border-forest-200'
-                    }`}
-                  >
-                    {unit}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-slate-400">기록 시각: {nowTime()} (자동 기록)</p>
             <button
               type="submit"
               className="w-full rounded-lg bg-forest-700 py-2.5 text-sm font-semibold text-white hover:bg-forest-800"

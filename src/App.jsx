@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Activity } from 'lucide-react'
 import Home from './components/Home'
 import MealCapture from './components/MealCapture'
-import SleepLog from './components/SleepLog'
+import MedicationLog from './components/MedicationLog'
 import WeeklyReport from './components/WeeklyReport'
 import MonthlyRetro from './components/MonthlyRetro'
 import Settings from './components/Settings'
 import { NAV_ITEMS } from './components/NavItems'
 import { mealSlotLabel } from './mealConfig'
-import { formatDateFull } from './dateUtils'
+import { formatDateFull, getTodayDateKey } from './dateUtils'
 import { getTodayDayKr } from './weekConfig'
 import * as storage from './storage'
 
 const TODAY_LABEL = formatDateFull()
-const HEADER_TABS = ['home', 'weekly', 'monthly', 'sleep']
+const HEADER_TABS = ['home', 'weekly', 'monthly']
+const DAILY_RESET_CHECK_INTERVAL_MS = 60_000
 
 export default function App() {
   const [tab, setTab] = useState('home')
@@ -26,8 +27,10 @@ export default function App() {
   const [sleepLog, setSleepLog] = useState(() => storage.loadAll().sleepLog)
   const [pendingSleepStart, setPendingSleepStart] = useState(() => storage.loadAll().pendingSleepStart)
   const [goal, setGoal] = useState(() => storage.loadAll().goal)
+  const [lastActiveDate, setLastActiveDate] = useState(() => storage.loadAll().lastActiveDate)
   const [mealPrefillSlot, setMealPrefillSlot] = useState(null)
   const [mealCaptureKey, setMealCaptureKey] = useState(0)
+  const lastActiveDateRef = useRef(lastActiveDate)
 
   useEffect(() => {
     storage.saveAll({
@@ -40,8 +43,50 @@ export default function App() {
       sleepLog,
       pendingSleepStart,
       goal,
+      lastActiveDate,
     })
-  }, [medications, mealSlots, timeline, retros, weeklyPatternLog, weeklyMealTimeLog, sleepLog, pendingSleepStart, goal])
+  }, [
+    medications,
+    mealSlots,
+    timeline,
+    retros,
+    weeklyPatternLog,
+    weeklyMealTimeLog,
+    sleepLog,
+    pendingSleepStart,
+    goal,
+    lastActiveDate,
+  ])
+
+  useEffect(() => {
+    lastActiveDateRef.current = lastActiveDate
+  }, [lastActiveDate])
+
+  // 앱이 자정을 넘겨 열려 있거나, 다음날 다시 열렸을 때 오늘의 복약 체크 상태를 리셋한다.
+  useEffect(() => {
+    function syncDailyReset() {
+      const todayKey = getTodayDateKey()
+      if (lastActiveDateRef.current === todayKey) return
+      const isRollover = lastActiveDateRef.current != null
+      lastActiveDateRef.current = todayKey
+      setLastActiveDate(todayKey)
+      if (isRollover) {
+        setMedications((prev) =>
+          prev.map((med) => ({
+            ...med,
+            times: med.times.map((t) => ({ ...t, done: false, doneAt: null })),
+          })),
+        )
+      }
+    }
+    syncDailyReset()
+    const intervalId = setInterval(syncDailyReset, DAILY_RESET_CHECK_INTERVAL_MS)
+    document.addEventListener('visibilitychange', syncDailyReset)
+    return () => {
+      clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', syncDailyReset)
+    }
+  }, [])
 
   function switchTab(id) {
     setTab(id)
@@ -54,8 +99,22 @@ export default function App() {
     setTab('meal')
   }
 
+  function markPatternCell(day, hour, mode) {
+    if (hour < 6 || hour > 23) return
+    setWeeklyPatternLog((prev) => ({ ...prev, [day]: { ...(prev[day] || {}), [hour]: mode } }))
+  }
+
+  function clearPatternCell(day, hour, mode) {
+    setWeeklyPatternLog((prev) => {
+      const dayLog = { ...(prev[day] || {}) }
+      if (dayLog[hour] === mode) delete dayLog[hour]
+      return { ...prev, [day]: dayLog }
+    })
+  }
+
   function toggleMedication(medId, timeId) {
     let newTimelineEntry = null
+    let patternChange = null
     setMedications((prev) =>
       prev.map((med) => {
         if (med.id !== medId) return med
@@ -74,7 +133,11 @@ export default function App() {
                 title: `${med.name} 복용 완료`,
                 subtitle: t.label,
               }
+              patternChange = { day: getTodayDayKr(now), hour: now.getHours(), action: 'add' }
               return { ...t, done: true, doneAt }
+            }
+            if (t.doneAt) {
+              patternChange = { day: getTodayDayKr(), hour: Number(t.doneAt.split(':')[0]), action: 'remove' }
             }
             return { ...t, done: false, doneAt: null }
           }),
@@ -82,6 +145,10 @@ export default function App() {
       }),
     )
     if (newTimelineEntry) setTimeline((prevTl) => [newTimelineEntry, ...prevTl])
+    if (patternChange) {
+      if (patternChange.action === 'add') markPatternCell(patternChange.day, patternChange.hour, 'med')
+      else clearPatternCell(patternChange.day, patternChange.hour, 'med')
+    }
   }
 
   function addTimelineEntry(entry) {
@@ -89,6 +156,7 @@ export default function App() {
   }
 
   function logMeal({ slotId, menuName, image, time }) {
+    const day = getTodayDayKr()
     addTimelineEntry({
       id: `tl-${Date.now()}-meal`,
       type: 'meal',
@@ -101,9 +169,9 @@ export default function App() {
       setMealSlots((prev) =>
         prev.map((s) => (s.id === slotId ? { ...s, done: true, doneAt: time, menu: menuName } : s)),
       )
-      const day = getTodayDayKr()
       setWeeklyMealTimeLog((prev) => ({ ...prev, [day]: { ...(prev[day] || {}), [slotId]: time } }))
     }
+    markPatternCell(day, Number(time.split(':')[0]), 'meal')
   }
 
   function toggleWeeklyPatternCell(day, hour, mode) {
@@ -213,8 +281,8 @@ export default function App() {
             />
           )}
           {tab === 'meal' && <MealCapture key={mealCaptureKey} prefillSlot={mealPrefillSlot} onSave={logMeal} />}
-          {tab === 'sleep' && (
-            <SleepLog sleepLog={sleepLog} pendingSleepStart={pendingSleepStart} onCheckIn={checkInSleep} onCheckOut={checkOutSleep} />
+          {tab === 'medlog' && (
+            <MedicationLog medications={medications} onAddMedication={addMedication} onRemoveMedication={removeMedication} />
           )}
           {tab === 'weekly' && (
             <WeeklyReport
@@ -228,9 +296,7 @@ export default function App() {
           {tab === 'monthly' && (
             <MonthlyRetro retros={retros} onAddRetro={addRetro} medications={medications} timeline={timeline} />
           )}
-          {tab === 'settings' && (
-            <Settings medications={medications} onAddMedication={addMedication} onRemoveMedication={removeMedication} />
-          )}
+          {tab === 'settings' && <Settings onAddTimelineEntry={addTimelineEntry} />}
         </main>
       </div>
 
